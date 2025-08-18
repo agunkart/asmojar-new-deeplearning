@@ -276,7 +276,7 @@
             identitas: {},
             currentModul: {},
             savedModules: [],
-            error: null, // Add error state
+            error: null,
         };
 
         // --- Element Selectors ---
@@ -303,6 +303,42 @@
         let generatedAsesmen = null;
         let generatedLampiran = null;
         
+        // --- Local Storage Functions ---
+        function saveDataToLocalStorage() {
+            try {
+                localStorage.setItem('identitas', JSON.stringify(appState.identitas));
+                localStorage.setItem('savedModules', JSON.stringify(appState.savedModules));
+            } catch (e) {
+                console.error("Gagal menyimpan data ke Local Storage:", e);
+            }
+        }
+
+        function loadDataFromLocalStorage() {
+            try {
+                const savedIdentitas = localStorage.getItem('identitas');
+                if (savedIdentitas) {
+                    appState.identitas = JSON.parse(savedIdentitas);
+                    document.getElementById('namaSekolah').value = appState.identitas.namaSekolah || '';
+                    document.getElementById('kelasSemester').value = appState.identitas.kelasSemester || '';
+                    document.getElementById('namaGuru').value = appState.identitas.namaGuru || '';
+                    document.getElementById('nipGuru').value = appState.identitas.nipGuru || '';
+                    document.getElementById('namaKepsek').value = appState.identitas.namaKepsek || '';
+                    document.getElementById('nipKepsek').value = appState.identitas.nipKepsek || '';
+                }
+
+                const savedModulesData = localStorage.getItem('savedModules');
+                if (savedModulesData) {
+                    appState.savedModules = JSON.parse(savedModulesData);
+                    renderHasilPage();
+                }
+            } catch (e) {
+                console.error("Gagal memuat data dari Local Storage:", e);
+                // Jika data korup, hapus saja
+                localStorage.removeItem('identitas');
+                localStorage.removeItem('savedModules');
+            }
+        }
+
         // --- Navigation ---
         function updateNavUI(pageId) {
             navBtns.forEach(btn => {
@@ -329,6 +365,7 @@
                 namaKepsek: document.getElementById('namaKepsek').value,
                 nipKepsek: document.getElementById('nipKepsek').value,
             };
+            saveDataToLocalStorage();
             saveConfirmMsg.textContent = 'Identitas berhasil disimpan!';
             setTimeout(() => { saveConfirmMsg.textContent = '' }, 3000);
         });
@@ -360,6 +397,7 @@
                 lampiran: generatedLampiran,
             };
             appState.savedModules.push(fullModuleData);
+            saveDataToLocalStorage();
             renderHasilPage();
             previewModal.style.display = 'none';
             navigateTo('page-hasil');
@@ -380,7 +418,6 @@
 
         // --- Handlers ---
         async function handlePreviewClick() {
-            // Reset error state
             appState.error = null;
             previewContainer.innerHTML = '';
 
@@ -391,7 +428,6 @@
 
             await processRppData();
 
-            // After processing, check for errors or valid content
             if (appState.error) {
                 displayErrorInPreview();
             } else if (generatedLangkah && generatedAsesmen && generatedLampiran) {
@@ -400,7 +436,6 @@
                 previewContainer.innerHTML = content;
                 previewModal.style.display = 'flex';
             } else {
-                // This case handles if processing finishes without error but content is still null
                 appState.error = "Gagal menghasilkan konten RPP karena alasan yang tidak diketahui.";
                 displayErrorInPreview();
             }
@@ -484,7 +519,7 @@
             const formData = new FormData(formModul);
             const data = Object.fromEntries(formData.entries());
             data.dimensiPancasila = formData.getAll('dimensiPancasila');
-            data.pesertaDidik = formData.getAll('pesertaDidik'); // Handle multiple checkboxes
+            data.pesertaDidik = formData.getAll('pesertaDidik');
             return data;
         }
 
@@ -503,7 +538,7 @@
                 generatedAsesmen = asesmenResult;
                 generatedLampiran = lampiranResult;
             } catch (error) {
-                appState.error = error.message; // Store error message
+                appState.error = error.message;
                 generatedLangkah = generatedAsesmen = generatedLampiran = null;
             } finally {
                 setLoading(false);
@@ -517,12 +552,7 @@
         }
         
         async function generateAiContent(type, data) {
-            // ===================================================================
-            // --- GANTI DENGAN KUNCI API ANDA ---
-            // Masukkan kunci API Gemini Anda di antara tanda kutip di bawah ini.
-            // ===================================================================
             const apiKey = "AIzaSyDmMFCVBAKLWkWkxNxzL34c85t4hzMQfR4"; 
-            // ===================================================================
 
             if (apiKey === "MASUKKAN_KUNCI_API_ANDA_DI_SINI") {
                 throw new Error("Kunci API belum dimasukkan ke dalam kode. Harap edit file HTML terlebih dahulu.");
@@ -572,7 +602,6 @@
                 try { return JSON.parse(text); } 
                 catch (e) { throw new Error("AI memberikan respons dengan format yang tidak valid."); }
             } else {
-                // Handle cases where the response is valid but has no content, e.g., safety blocks
                 const blockReason = result?.promptFeedback?.blockReason;
                 if (blockReason) {
                     throw new Error(`Permintaan diblokir karena alasan keamanan: ${blockReason}. Coba ubah isian Anda.`);
@@ -696,7 +725,7 @@
             const blob = htmlDocx.asBlob(content, {
                 orientation: 'portrait',
                 margins: {
-                    top: 720, // 1 inch = 720
+                    top: 720,
                     bottom: 720,
                     left: 720,
                     right: 720
@@ -718,6 +747,7 @@
         }
         
         // --- Initial setup ---
+        loadDataFromLocalStorage();
         navigateTo('page-identitas');
     </script>
 </body>
