@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generator Modul Ajar (RPP) Otomatis</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Library for DOCX conversion -->
+    <script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f1f5f9; }
+        .main-container {
+            background-color: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(10px);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        .form-section { border: 1px solid #e2e8f0; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; background-color: white; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); border-top: 4px solid #6366f1; }
+        .form-section-header { display: flex; align-items: center; gap: 0.75rem; padding-bottom: 1rem; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem; }
+        .form-section-header .icon { background-color: #e0e7ff; color: #4f46e5; border-radius: 9999px; padding: 0.5rem; display: flex; align-items: center; justify-content: center; }
+        .form-section-header h2 { font-size: 1.125rem; font-weight: 600; color: #1e293b; }
+        label { font-weight: 500; color: #475569; }
+        .input-wrapper { position: relative; }
+        input[type="text"], input[type="password"], input[type="number"], textarea, select { width: 100%; padding: 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; margin-top: 0.25rem; transition: border-color 0.2s, box-shadow 0.2s; background-color: #f8fafc; }
+        input[type="text"]:focus, input[type="password"]:focus, input[type="number"]:focus, textarea:focus, select:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.4); background-color: white; }
+        textarea { min-height: 100px; resize: vertical; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+        @media (max-width: 640px) { .checkbox-grid { grid-template-columns: repeat(1, minmax(0, 1fr)); } }
+        .checkbox-label { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; }
+        .checkbox-label:has(input:checked) { background-color: #eef2ff; border-color: #6366f1; }
+        .checkbox-label input { width: 1rem; height: 1rem; accent-color: #4f46e5; }
+        .action-btn { width: 100%; padding: 1rem; font-weight: 600; border-radius: 0.5rem; border: none; cursor: pointer; transition: all 0.4s ease; display: flex; align-items: center; justify-content: center; gap: 0.5rem; background-size: 200% auto; }
+        .gemini-btn { position: absolute; right: 8px; bottom: 8px; padding: 0.3rem 0.6rem; font-size: 0.75rem; background-color: #f0f9ff; color: #0ea5e9; border: 1px solid #bae6fd; border-radius: 0.375rem; text-decoration: none; }
+        .gemini-btn:hover { background-color: #e0f2fe; }
+        .primary-btn { background-image: linear-gradient(to right, #818cf8 0%, #c084fc 51%, #818cf8 100%); color: white; box-shadow: 0 4px 15px 0 rgba(129, 140, 248, 0.4); }
+        .primary-btn:hover { background-position: right center; }
+        .secondary-btn { background-color: transparent; color: #4f46e5; border: 2px solid #4f46e5; }
+        .secondary-btn:hover { background-color: #eef2ff; }
+        .action-btn:disabled { background-image: none; background-color: #94a3b8; border-color: #94a3b8; color: white; cursor: not-allowed; }
+        #loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); z-index: 10001; justify-content: center; align-items: center; color: white; text-align: center; }
+        .spinner { border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top: 4px solid #fff; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 1rem; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .modal { display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); justify-content: center; align-items: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888; width: 90%; border-radius: 0.5rem; box-shadow: 0 5px 15px rgba(0,0,0,0.3); position: relative; display: flex; flex-direction: column; }
+        #preview-modal .modal-content { max-width: 8.5in; }
+        #idea-modal .modal-content { max-width: 600px; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid #ddd; }
+        .modal-header h2 { font-size: 1.5rem; font-weight: 600; }
+        .close-btn { color: #aaa; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .close-btn:hover, .close-btn:focus { color: black; }
+        #preview-container, #idea-container { max-height: 70vh; overflow-y: auto; margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #ddd; }
+        .modal-footer { padding-top: 15px; margin-top: 15px; border-top: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .saved-item { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s; background-color: white; }
+        .saved-item:hover { background-color: #f8fafc; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); }
+        .nav-btn { cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s ease-in-out; }
+        .nav-btn.active { background-color: #4f46e5; color: white; box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39); }
+        .nav-btn:not(.active) { color: #475569; }
+        .nav-btn:not(.active):hover { background-color: #eef2ff; color: #4f46e5; }
+        .icon-btn { padding: 0.5rem; border-radius: 0.375rem; transition: background-color 0.2s; }
+        .icon-btn:hover { background-color: #e5e7eb; }
+        .main-title { background: linear-gradient(to right, #4f46e5, #d946ef); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .error-message { padding: 1rem; background-color: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 0.5rem; }
+    </style>
+    
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <div id="loader">
+        <div>
+            <div class="spinner"></div>
+            <p class="text-lg font-medium">✨ AI sedang bekerja...</p>
+            <p id="loader-text" class="text-sm">Mohon tunggu sebentar.</p>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="preview-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Pratinjau Modul Ajar</h2>
+                <span class="close-btn" data-modal="preview-modal">&times;</span>
+            </div>
+            <div id="preview-container"></div>
+            <div class="modal-footer">
+                <div class="flex flex-wrap items-center gap-4">
+                    <div>
+                        <label for="paper-size" class="text-sm font-medium text-gray-700">Kertas:</label>
+                        <select id="paper-size" class="p-1 border border-gray-300 rounded-md text-sm mt-0">
+                            <option value="A4">A4</option>
+                            <option value="F4">F4</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm font-medium text-gray-700">Margin (Cm):</label>
+                        <input type="number" id="margin-top" value="2.54" class="w-16 p-1 border border-gray-300 rounded-md text-sm mt-0" placeholder="Atas">
+                        <input type="number" id="margin-bottom" value="2.54" class="w-16 p-1 border border-gray-300 rounded-md text-sm mt-0" placeholder="Bawah">
+                        <input type="number" id="margin-left" value="2.54" class="w-16 p-1 border border-gray-300 rounded-md text-sm mt-0" placeholder="Kiri">
+                        <input type="number" id="margin-right" value="2.54" class="w-16 p-1 border border-gray-300 rounded-md text-sm mt-0" placeholder="Kanan">
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" id="save-btn" class="action-btn primary-btn" style="padding: 0.75rem 1.5rem;">Simpan</button>
+                    <button type="button" id="download-docx-btn" class="action-btn" style="background-color: #1d4ed8; padding: 0.75rem 1.5rem;">Unduh DOCX</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="idea-modal" class="modal">
+        <div class="modal-content">
+             <div class="modal-header">
+                <h2 id="idea-modal-title">✨ Ide dari AI</h2>
+                <span class="close-btn" data-modal="idea-modal">&times;</span>
+            </div>
+            <div id="idea-container" class="mt-4"></div>
+        </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <div class="mb-8 bg-white rounded-lg shadow-sm p-2 flex justify-center">
+            <nav class="flex space-x-2" aria-label="Tabs">
+                <button data-page="page-identitas" class="nav-btn whitespace-nowrap">
+                    1. Identitas
+                </button>
+                <button data-page="page-modul" class="nav-btn whitespace-nowrap">
+                    2. Modul Ajar
+                </button>
+                <button data-page="page-hasil" class="nav-btn whitespace-nowrap">
+                    3. Hasil
+                </button>
+                <button data-page="page-info" class="nav-btn whitespace-nowrap">
+                    Info
+                </button>
+            </nav>
+        </div>
+
+        <!-- PAGE 1: IDENTITAS -->
+        <div id="page-identitas" class="page active">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 main-title">Generator Modul Ajar</h1>
+                <p class="mt-2 text-lg text-slate-600">Langkah 1: Isi Identitas Sekolah dan Guru</p>
+            </header>
+            <div id="form-identitas">
+                <div class="form-section">
+                    <div class="space-y-6">
+                        <div><label for="namaSekolah">Nama Sekolah</label><input type="text" id="namaSekolah" required placeholder="Contoh: SD Negeri 1 Indonesia"></div>
+                        <div><label for="kelasSemester">Kelas/Semester</label><input type="text" id="kelasSemester" name="kelasSemester" required placeholder="Contoh: IV / Ganjil"></div>
+                        <div><label for="namaGuru">Nama Guru</label><input type="text" id="namaGuru" required placeholder="Contoh: Budi Santoso, S.Pd."></div>
+                        <div><label for="nipGuru">NIP Guru</label><input type="text" id="nipGuru" placeholder="Isi NIP jika ada"></div>
+                        <div><label for="namaKepsek">Nama Kepala Sekolah</label><input type="text" id="namaKepsek" required placeholder="Contoh: Dra. Sri Mulyani"></div>
+                        <div><label for="nipKepsek">NIP Kepala Sekolah</label><input type="text" id="nipKepsek" placeholder="Isi NIP jika ada"></div>
+                    </div>
+                </div>
+                <button type="button" id="save-identity-btn" class="action-btn primary-btn w-full">Simpan Identitas</button>
+                <p id="save-confirm-msg" class="text-center text-green-600 mt-2 font-medium"></p>
+            </div>
+        </div>
+
+        <!-- PAGE 2: MODUL AJAR EDITOR -->
+        <div id="page-modul" class="page">
+             <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 main-title">Buat Modul Ajar</h1>
+                <p class="mt-2 text-lg text-slate-600">Langkah 2: Lengkapi detail pembelajaran di bawah ini.</p>
+            </header>
+            <form id="form-modul">
+                <div class="form-section">
+                    <div class="form-section-header"><div class="icon">...</div><h2>Identifikasi</h2></div>
+                    <div class="space-y-6">
+                        <div>
+                            <label for="mataPelajaran">Mata Pelajaran</label>
+                            <input type="text" id="mataPelajaran" name="mataPelajaran" required placeholder="Contoh: IPAS">
+                        </div>
+                        <div><label for="alokasiWaktu">Alokasi Waktu (JP)</label><input type="text" id="alokasiWaktu" name="alokasiWaktu" required placeholder="Contoh: 2 JP (2x35 Menit)"></div>
+                        <div>
+                            <label>Target Peserta Didik</label>
+                            <div class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <label class="checkbox-label"><input type="checkbox" name="pesertaDidik" value="Reguler" checked> Reguler</label>
+                                <label class="checkbox-label"><input type="checkbox" name="pesertaDidik" value="Kesulitan belajar"> Kesulitan belajar</label>
+                                <label class="checkbox-label"><input type="checkbox" name="pesertaDidik" value="Pencapaian tinggi"> Pencapaian tinggi</label>
+                            </div>
+                        </div>
+                        <div><label for="materiPelajaran">Materi Pelajaran</label><textarea id="materiPelajaran" name="materiPelajaran" required placeholder="Jelaskan materi pokok yang akan diajarkan."></textarea></div>
+                        <div>
+                            <label>Dimensi Profil Lulusan</label>
+                            <div class="mt-2 checkbox-grid">
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Keimanan dan Ketakwaan terhadap Tuhan YME"> Keimanan & Ketakwaan</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Kewargaan"> Kewargaan</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Penalaran Kritis"> Penalaran Kritis</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Kreativitas"> Kreativitas</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Kolaborasi"> Kolaborasi</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Kemandirian"> Kemandirian</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Kesehatan"> Kesehatan</label>
+                                <label class="checkbox-label"><input type="checkbox" name="dimensiPancasila" value="Komunikasi"> Komunikasi</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-section">
+                    <div class="form-section-header"><div class="icon">...</div><h2>Desain Pembelajaran</h2></div>
+                    <div class="space-y-6">
+                        <div class="input-wrapper"><label for="capaianPembelajaran">Capaian Pembelajaran</label><textarea id="capaianPembelajaran" name="capaianPembelajaran" required></textarea><a href="https://guru.kemdikbud.go.id/kurikulum/referensi-penerapan/capaian-pembelajaran/" target="_blank" rel="noopener noreferrer" class="gemini-btn" style="background-color: #f3f4f6; color: #4b5563; border-color: #d1d5db;">Lihat Referensi</a></div>
+                        <div class="input-wrapper"><label for="lintasDisiplin">Lintas Disiplin Ilmu</label><input type="text" id="lintasDisiplin" name="lintasDisiplin" placeholder="Contoh: Matematika (berhitung), Bahasa Indonesia (menulis laporan)"><button type="button" class="gemini-btn ai-idea-trigger" data-target="lintasDisiplin" data-prompt="Berikan ide Lintas Disiplin Ilmu untuk mata pelajaran">✨ Beri Ide</button></div>
+                        <div class="input-wrapper"><label for="tujuanPembelajaran">Tujuan Pembelajaran</label><textarea id="tujuanPembelajaran" name="tujuanPembelajaran" required></textarea><button type="button" class="gemini-btn ai-idea-trigger" data-target="tujuanPembelajaran" data-prompt="Berdasarkan Capaian Pembelajaran, buatkan 3 contoh Tujuan Pembelajaran (TP) untuk mata pelajaran">✨ Beri Ide</button></div>
+                        <div class="input-wrapper"><label for="topikPembelajaran">Topik Pembelajaran</label><input type="text" id="topikPembelajaran" name="topikPembelajaran" required placeholder="Contoh: Rantai Makanan di Ekosistem Sawah"><button type="button" class="gemini-btn ai-idea-trigger" data-target="topikPembelajaran" data-prompt="Berdasarkan Tujuan Pembelajaran, berikan 3 ide Topik Pembelajaran yang menarik untuk mata pelajaran">✨ Beri Ide</button></div>
+                        <div class="input-wrapper"><label for="praktikPedagogis">Praktik Pedagogis</label><input type="text" id="praktikPedagogis" name="praktikPedagogis" placeholder="Contoh: Pembelajaran Berbasis Proyek, Pengamatan Langsung"><button type="button" class="gemini-btn ai-idea-trigger" data-target="praktikPedagogis" data-prompt="Berikan contoh Praktik Pedagogis yang cocok untuk topik">✨ Beri Ide</button></div>
+                        <div class="input-wrapper"><label for="kemitraanPembelajaran">Kemitraan Pembelajaran</label><input type="text" id="kemitraanPembelajaran" name="kemitraanPembelajaran" placeholder="Contoh: Orang Tua, Komunitas Lokal, Praktisi Pertanian"><button type="button" class="gemini-btn ai-idea-trigger" data-target="kemitraanPembelajaran" data-prompt="Berikan ide Kemitraan Pembelajaran (dengan orang tua/komunitas) untuk topik">✨ Beri Ide</button></div>
+                        <div class="input-wrapper"><label for="lingkunganPembelajaran">Lingkungan Pembelajaran</label><input type="text" id="lingkunganPembelajaran" name="lingkunganPembelajaran" placeholder="Contoh: Ruang Kelas, Kebun Sekolah, Sawah"><button type="button" class="gemini-btn ai-idea-trigger" data-target="lingkunganPembelajaran" data-prompt="Berikan ide Lingkungan Pembelajaran (fisik/non-fisik) yang mendukung untuk topik">✨ Beri Ide</button></div>
+                        <div class="input-wrapper"><label for="pemanfaatanDigital">Pemanfaatan Digital</label><input type="text" id="pemanfaatanDigital" name="pemanfaatanDigital" placeholder="Contoh: Video pembelajaran YouTube, Game edukasi, Aplikasi menggambar"><button type="button" class="gemini-btn ai-idea-trigger" data-target="pemanfaatanDigital" data-prompt="Berikan ide Pemanfaatan Digital dalam pembelajaran untuk topik">✨ Beri Ide</button></div>
+                    </div>
+                </div>
+                 <div class="form-section">
+                    <div class="form-section-header"><div class="icon">...</div><h2>Lampiran-Lampiran</h2></div>
+                    <div class="p-4 text-center bg-slate-100 rounded-lg">
+                        <p class="text-slate-500 text-sm">Bagian Lampiran (Materi Ajar, LKPD, Rubrik, dan Soal Asesmen) akan dibuat secara otomatis oleh AI.</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <button type="button" id="clear-modul-btn" class="action-btn secondary-btn w-1/3">Bersihkan</button>
+                    <button type="submit" id="preview-btn" class="action-btn primary-btn w-2/3">Pratinjau & Simpan RPP</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- PAGE 3: HASIL GENERATE -->
+        <div id="page-hasil" class="page">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 main-title">Hasil Modul Ajar Tersimpan</h1>
+                <p class="mt-2 text-lg text-slate-600">Klik pada salah satu item untuk melihat pratinjau dan mengunduh.</p>
+            </header>
+            <div id="saved-list-container">
+                <!-- Saved items will be rendered here -->
+            </div>
+            <button type="button" id="create-new-btn" class="action-btn primary-btn mt-8">Buat Modul Ajar Baru</button>
+        </div>
+
+        <!-- PAGE 4: INFO -->
+        <div id="page-info" class="page">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 main-title">Informasi Aplikasi</h1>
+                <p class="mt-2 text-lg text-slate-600">Detail pengembang dan tautan bantuan.</p>
+            </header>
+            <div class="form-section">
+                <div class="space-y-6 text-center sm:text-left">
+                    <div class="sm:flex sm:items-center sm:gap-4">
+                        <p class="font-semibold text-slate-700 sm:w-1/3">Pengembang Aplikasi</p>
+                        <p class="text-slate-600 sm:w-2/3">Agung Kurniawan, S.Pd.</p>
+                    </div>
+                    <div class="sm:flex sm:items-center sm:gap-4">
+                        <p class="font-semibold text-slate-700 sm:w-1/3">Unit Kerja</p>
+                        <p class="text-slate-600 sm:w-2/3">SDN 01 Warungpring - Pemalang</p>
+                    </div>
+                    <div class="sm:flex sm:items-center sm:gap-4">
+                        <p class="font-semibold text-slate-700 sm:w-1/3">Saran & Bantuan Teknis</p>
+                        <a href="https://chat.whatsapp.com/LvzbnBgTffKCGUIStyayh5" target="_blank" class="text-indigo-600 hover:underline sm:w-2/3">Gabung Grup WhatsApp</a>
+                    </div>
+                    <div class="sm:flex sm:items-center sm:gap-4">
+                        <p class="font-semibold text-slate-700 sm:w-1/3">Lihat Aplikasi Sekolah Lainnya</p>
+                        <a href="https://s.id/agunk-aplikasi" target="_blank" class="text-indigo-600 hover:underline sm:w-2/3">Kunjungi Laman Aplikasi</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const appState = {
+            currentPage: 'page-identitas',
+            identitas: {},
+            currentModul: {},
+            savedModules: [],
+            error: null, // Add error state
+        };
+
+        // --- Element Selectors ---
+        const pages = document.querySelectorAll('.page');
+        const formModul = document.getElementById('form-modul');
+        const previewBtn = document.getElementById('preview-btn');
+        const downloadDocxBtn = document.getElementById('download-docx-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const loader = document.getElementById('loader');
+        const loaderText = document.getElementById('loader-text');
+        const previewModal = document.getElementById('preview-modal');
+        const previewContainer = document.getElementById('preview-container');
+        const ideaModal = document.getElementById('idea-modal');
+        const ideaContainer = document.getElementById('idea-container');
+        const ideaModalTitle = document.getElementById('idea-modal-title');
+        const createNewBtn = document.getElementById('create-new-btn');
+        const savedListContainer = document.getElementById('saved-list-container');
+        const navBtns = document.querySelectorAll('.nav-btn');
+        const saveIdentityBtn = document.getElementById('save-identity-btn');
+        const saveConfirmMsg = document.getElementById('save-confirm-msg');
+        const clearModulBtn = document.getElementById('clear-modul-btn');
+
+        let generatedLangkah = null;
+        let generatedAsesmen = null;
+        let generatedLampiran = null;
+        
+        // --- Navigation ---
+        function updateNavUI(pageId) {
+            navBtns.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.page === pageId);
+            });
+        }
+
+        function navigateTo(pageId) {
+            appState.currentPage = pageId;
+            pages.forEach(page => {
+                page.classList.toggle('active', page.id === pageId);
+            });
+            updateNavUI(pageId);
+            window.scrollTo(0, 0);
+        }
+
+        // --- Event Listeners ---
+        saveIdentityBtn.addEventListener('click', () => {
+             appState.identitas = {
+                namaSekolah: document.getElementById('namaSekolah').value,
+                kelasSemester: document.getElementById('kelasSemester').value,
+                namaGuru: document.getElementById('namaGuru').value,
+                nipGuru: document.getElementById('nipGuru').value,
+                namaKepsek: document.getElementById('namaKepsek').value,
+                nipKepsek: document.getElementById('nipKepsek').value,
+            };
+            saveConfirmMsg.textContent = 'Identitas berhasil disimpan!';
+            setTimeout(() => { saveConfirmMsg.textContent = '' }, 3000);
+        });
+
+        navBtns.forEach(btn => {
+            btn.addEventListener('click', () => navigateTo(btn.dataset.page));
+        });
+
+        formModul.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await handlePreviewClick();
+        });
+
+        clearModulBtn.addEventListener('click', () => {
+            formModul.reset();
+        });
+
+        createNewBtn.addEventListener('click', () => {
+            formModul.reset();
+            navigateTo('page-modul');
+        });
+        
+        saveBtn.addEventListener('click', () => {
+            const data = { ...appState.identitas, ...appState.currentModul };
+            const fullModuleData = {
+                data,
+                langkah: generatedLangkah,
+                asesmen: generatedAsesmen,
+                lampiran: generatedLampiran,
+            };
+            appState.savedModules.push(fullModuleData);
+            renderHasilPage();
+            previewModal.style.display = 'none';
+            navigateTo('page-hasil');
+        });
+
+        downloadDocxBtn.addEventListener('click', handleDownloadDocxClick);
+        
+        document.querySelectorAll('.ai-idea-trigger').forEach(btn => {
+            btn.addEventListener('click', handleGenericIdeaClick);
+        });
+        
+        document.querySelectorAll('.close-btn').forEach(btn => {
+            btn.addEventListener('click', () => { document.getElementById(btn.dataset.modal).style.display = 'none'; });
+        });
+        window.addEventListener('click', (event) => {
+            if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; }
+        });
+
+        // --- Handlers ---
+        async function handlePreviewClick() {
+            // Reset error state
+            appState.error = null;
+            previewContainer.innerHTML = '';
+
+            if (!formModul.checkValidity()) { 
+                formModul.reportValidity(); 
+                return; 
+            }
+
+            await processRppData();
+
+            // After processing, check for errors or valid content
+            if (appState.error) {
+                displayErrorInPreview();
+            } else if (generatedLangkah && generatedAsesmen && generatedLampiran) {
+                const data = { ...appState.identitas, ...getModulFormData() };
+                const content = getHtmlContent(data, generatedLangkah, generatedAsesmen, generatedLampiran);
+                previewContainer.innerHTML = content;
+                previewModal.style.display = 'flex';
+            } else {
+                // This case handles if processing finishes without error but content is still null
+                appState.error = "Gagal menghasilkan konten RPP karena alasan yang tidak diketahui.";
+                displayErrorInPreview();
+            }
+        }
+
+        function displayErrorInPreview() {
+            previewContainer.innerHTML = `
+                <div class="error-message">
+                    <h3 class="font-bold text-lg mb-2">Terjadi Kesalahan</h3>
+                    <p>${appState.error}</p>
+                    <p class="mt-2 text-sm">Pastikan Kunci API Anda benar dan coba lagi.</p>
+                </div>
+            `;
+            previewModal.style.display = 'flex';
+        }
+
+
+        async function handleGenericIdeaClick(event) {
+            const targetId = event.target.dataset.target;
+            const promptInstruction = event.target.dataset.prompt;
+            const targetLabel = document.querySelector(`label[for='${targetId}']`).textContent;
+
+            const mataPelajaran = document.getElementById('mataPelajaran').value;
+            const cp = document.getElementById('capaianPembelajaran').value;
+            const tp = document.getElementById('tujuanPembelajaran').value;
+            const topik = document.getElementById('topikPembelajaran').value;
+
+            let context = `Mata pelajaran adalah ${mataPelajaran || 'tidak ditentukan'}.`;
+            if (cp) context += ` Capaian Pembelajaran: "${cp}".`;
+            if (tp) context += ` Tujuan Pembelajaran: "${tp}".`;
+            if (topik) context += ` Topik: "${topik}".`;
+
+            setLoading(true, `Mencari ide untuk ${targetLabel}...`);
+            try {
+                const result = await generateAiContent('generic', { instruction: promptInstruction, context });
+                ideaModalTitle.textContent = `✨ Ide untuk ${targetLabel}`;
+                ideaContainer.innerHTML = `<p>${result.ide.replace(/\n/g, '<br>')}</p><p class="text-sm text-slate-500 mt-4">Anda dapat menyalin ide di atas dan menempelkannya di kolom yang sesuai.</p>`;
+                ideaModal.style.display = 'flex';
+            } catch (error) {
+                alert(`Gagal mendapatkan ide: ${error.message}`);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function handleDownloadDocxClick() {
+             if (previewContainer.innerHTML && !appState.error) {
+                const data = { ...appState.identitas, ...getModulFormData() };
+                generateDocxFromElement(previewContainer, data);
+            } else {
+                alert("Tidak ada konten valid untuk diunduh.");
+            }
+        }
+        
+        function renderHasilPage() {
+            savedListContainer.innerHTML = '';
+            if (appState.savedModules.length === 0) {
+                savedListContainer.innerHTML = '<p class="text-center text-slate-500">Belum ada modul ajar yang disimpan.</p>';
+                return;
+            }
+            appState.savedModules.forEach((modul, index) => {
+                const item = document.createElement('div');
+                item.className = 'saved-item';
+                item.innerHTML = `
+                    <h3 class="font-bold text-lg">${modul.data.mataPelajaran || 'Tanpa Judul'}</h3>
+                    <p class="text-sm text-slate-600">${modul.data.topikPembelajaran || 'Tanpa Topik'}</p>
+                `;
+                item.addEventListener('click', () => {
+                    const content = getHtmlContent(modul.data, modul.langkah, modul.asesmen, modul.lampiran);
+                    previewContainer.innerHTML = content;
+                    saveBtn.style.display = 'none';
+                    previewModal.style.display = 'flex';
+                });
+                savedListContainer.appendChild(item);
+            });
+        }
+
+
+        // --- Core Logic ---
+        function getModulFormData() {
+            const formData = new FormData(formModul);
+            const data = Object.fromEntries(formData.entries());
+            data.dimensiPancasila = formData.getAll('dimensiPancasila');
+            data.pesertaDidik = formData.getAll('pesertaDidik'); // Handle multiple checkboxes
+            return data;
+        }
+
+        async function processRppData() {
+            setLoading(true, "Menyusun RPP lengkap...");
+            try {
+                appState.currentModul = getModulFormData();
+                const data = { ...appState.identitas, ...appState.currentModul };
+
+                const [langkahResult, asesmenResult, lampiranResult] = await Promise.all([
+                    generateAiContent('langkah', data),
+                    generateAiContent('asesmen', data),
+                    generateAiContent('lampiran', data)
+                ]);
+                generatedLangkah = langkahResult;
+                generatedAsesmen = asesmenResult;
+                generatedLampiran = lampiranResult;
+            } catch (error) {
+                appState.error = error.message; // Store error message
+                generatedLangkah = generatedAsesmen = generatedLampiran = null;
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function setLoading(isLoading, text = "Mohon tunggu sebentar.") {
+            loaderText.textContent = text;
+            loader.style.display = isLoading ? 'flex' : 'none';
+            previewBtn.disabled = isLoading;
+        }
+        
+        async function generateAiContent(type, data) {
+            // ===================================================================
+            // --- GANTI DENGAN KUNCI API ANDA ---
+            // Masukkan kunci API Gemini Anda di antara tanda kutip di bawah ini.
+            // ===================================================================
+            const apiKey = "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"; 
+            // ===================================================================
+
+            if (apiKey === "MASUKKAN_KUNCI_API_ANDA_DI_SINI") {
+                throw new Error("Kunci API belum dimasukkan ke dalam kode. Harap edit file HTML terlebih dahulu.");
+            }
+
+            let prompt;
+            const generationConfig = { responseMimeType: "application/json", responseSchema: {} };
+
+            switch(type) {
+                case 'langkah':
+                    prompt = `Buatkan Langkah-Langkah Pembelajaran (Awal, Inti, Penutup) berdasarkan detail: Topik '${data.topikPembelajaran}', Tujuan Pembelajaran '${data.tujuanPembelajaran}'.`;
+                    generationConfig.responseSchema = { type: "OBJECT", properties: { awal: { type: "ARRAY", items: { type: "STRING" } }, inti: { type: "ARRAY", items: { type: "STRING" } }, penutup: { type: "ARRAY", items: { type: "STRING" } } }, required: ["awal", "inti", "penutup"] };
+                    break;
+                case 'asesmen':
+                    prompt = `Berdasarkan Tujuan Pembelajaran: "${data.tujuanPembelajaran}", buatkan deskripsi singkat untuk Asesmen Awal, Proses, dan Akhir.`;
+                    generationConfig.responseSchema = { type: "OBJECT", properties: { awal: { type: "STRING" }, proses: { type: "STRING" }, akhir: { type: "STRING" } }, required: ["awal", "proses", "akhir"] };
+                    break;
+                case 'lampiran':
+                    prompt = `Berdasarkan Topik: '${data.topikPembelajaran}' dan Tujuan Pembelajaran: '${data.tujuanPembelajaran}', buatkan konten lampiran yang terdiri dari: 1. Materi Ajar singkat (1-2 paragraf), 2. 3 aktivitas untuk Lembar Kerja Peserta Didik (LKPD), 3. Rubrik Penilaian sederhana untuk salah satu aktivitas LKPD, dan 4. 10 Soal Asesmen pilihan ganda beserta kunci jawabannya.`;
+                    generationConfig.responseSchema = { type: "OBJECT", properties: { materi_ajar: { type: "STRING" }, lkpd: { type: "ARRAY", items: { type: "STRING" } }, rubrik_penilaian: { type: "STRING" }, soal_asesmen: { type: "ARRAY", items: { type: "OBJECT", properties: { pertanyaan: { type: "STRING" }, pilihan: { type: "OBJECT", properties: { A: { type: "STRING" }, B: { type: "STRING" }, C: { type: "STRING" }, D: { type: "STRING" } }, required: ["A", "B", "C", "D"] }, jawaban_benar: { type: "STRING" } }, required: ["pertanyaan", "pilihan", "jawaban_benar"] } } }, required: ["materi_ajar", "lkpd", "rubrik_penilaian", "soal_asesmen"] };
+                    break;
+                case 'generic':
+                    prompt = `Konteks: ${data.context}. Tugas: ${data.instruction}. Berikan jawaban singkat dan jelas dalam satu paragraf atau beberapa poin.`;
+                    generationConfig.responseSchema = { type: "OBJECT", properties: { ide: { type: "STRING" } }, required: ["ide"] };
+                    break;
+            }
+
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            let response;
+            try {
+                response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) {
+                    const errorBody = await response.json();
+                    const errorMessage = errorBody?.error?.message || `API request failed with status ${response.status}`;
+                    throw new Error(errorMessage);
+                }
+            } catch (error) {
+                console.error("Fetch error:", error);
+                throw new Error(`Masalah jaringan atau koneksi ke API gagal. Detail: ${error.message}`);
+            }
+            
+            const result = await response.json();
+            if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts) {
+                const text = result.candidates[0].content.parts[0].text;
+                try { return JSON.parse(text); } 
+                catch (e) { throw new Error("AI memberikan respons dengan format yang tidak valid."); }
+            } else {
+                // Handle cases where the response is valid but has no content, e.g., safety blocks
+                const blockReason = result?.promptFeedback?.blockReason;
+                if (blockReason) {
+                    throw new Error(`Permintaan diblokir karena alasan keamanan: ${blockReason}. Coba ubah isian Anda.`);
+                }
+                throw new Error("Gagal mendapatkan konten dari AI. Respons tidak berisi data yang diharapkan.");
+            }
+        }
+
+        function getHtmlContent(data, langkah, asesmen, lampiran) {
+            const listToHtml = (arr) => `<ol>${(arr || []).map(item => `<li>${item}</li>`).join('')}</ol>`;
+            const soalHtml = lampiran?.soal_asesmen ? lampiran.soal_asesmen.map((item, index) => `
+                <div class="soal-item" style="margin-bottom: 1em;">
+                    <p><b>${index + 1}. ${item.pertanyaan || ''}</b></p>
+                    <ul class="soal-pilihan" style="list-style-type: none; padding-left: 0;">
+                        <li>A. ${item.pilihan?.A || ''}</li><li>B. ${item.pilihan?.B || ''}</li>
+                        <li>C. ${item.pilihan?.C || ''}</li><li>D. ${item.pilihan?.D || ''}</li>
+                    </ul>
+                    <p><b>Kunci Jawaban:</b> ${item.jawaban_benar || ''}</p>
+                </div>`).join('') : '<p>Gagal membuat soal.</p>';
+
+            const styles = `
+                <style>
+                    .doc-container { font-family: 'Times New Roman', Times, serif; font-size: 12pt; }
+                    .doc-container h1 { text-align: center; font-size: 14pt; font-weight: bold; margin: 0; }
+                    .doc-container h2 { font-size: 12pt; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; margin-top: 18px; }
+                    .doc-container h3 { font-size: 12pt; font-weight: bold; margin-top: 12px; }
+                    .doc-container table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    .doc-container td { padding: 4px; vertical-align: top; }
+                    .doc-container .label-col { width: 150px; }
+                    .doc-container .main-table, .doc-container .main-table td { border: 1px solid black; }
+                    .doc-container .vertical-header { font-weight: bold; writing-mode: vertical-rl; transform: rotate(180deg); text-align: center; width: 20px; }
+                    .doc-container .inner-table td { border: none; }
+                    .doc-container .dpl-table td { border: 1px solid black; }
+                    .doc-container .langkah-table td { border: 1px solid black; }
+                    .doc-container .langkah-title { font-weight: bold; text-align: center; }
+                    .doc-container .langkah-subtitle { font-style: italic; }
+                    .doc-container ol { margin: 0; padding-left: 20px; }
+                    .doc-container li { margin-bottom: 2px; }
+                    .doc-container input[type="checkbox"] { width: 12px; height: 12px; }
+                </style>`;
+
+            return `
+            ${styles}
+            <div class="doc-container">
+                <h1>RENCANA PELAKSANAAN PEMBELAJARAN</h1>
+                <table style="border: none;">
+                    <tr><td class="label-col">Nama Sekolah</td><td>: ${data.namaSekolah || ''}</td></tr>
+                    <tr><td class="label-col">Kelas/Semester</td><td>: ${data.kelasSemester || ''}</td></tr>
+                    <tr><td class="label-col">Mata Pelajaran</td><td>: ${data.mataPelajaran || ''}</td></tr>
+                    <tr><td class="label-col">Alokasi Waktu (JP)</td><td>: ${data.alokasiWaktu || ''}</td></tr>
+                </table>
+                <table class="main-table">
+                    <tr>
+                        <td class="vertical-header" style="background-color: #00b0f0;">Indentifikasi</td>
+                        <td>
+                            <table class="inner-table">
+                                <tr><td class="label-col">Target Peserta Didik</td><td>: ${(data.pesertaDidik || []).join(', ') || ''}</td></tr>
+                                <tr><td class="label-col">Materi Pelajaran</td><td>: ${data.materiPelajaran || ''}</td></tr>
+                                <tr><td class="label-col">Dimensi Profil Lulusan</td><td>: ${(data.dimensiPancasila || []).join(', ') || ''}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="vertical-header" style="background-color: #f8cbad;">Desain Pembelajaran</td>
+                        <td>
+                             <table class="inner-table">
+                                <tr><td class="label-col">Capaian Pembelajaran</td><td>: ${(data.capaianPembelajaran || '').replace(/\n/g, '<br>')}</td></tr>
+                                <tr><td class="label-col">Lintas Disiplin Ilmu</td><td>: ${data.lintasDisiplin || ''}</td></tr>
+                                <tr><td class="label-col">Tujuan Pembelajaran</td><td>: ${(data.tujuanPembelajaran || '').replace(/\n/g, '<br>')}</td></tr>
+                                <tr><td class="label-col">Topik Pembelajaran</td><td>: ${data.topikPembelajaran || ''}</td></tr>
+                                <tr><td class="label-col">Praktik Pedagogis</td><td>: ${data.praktikPedagogis || ''}</td></tr>
+                                <tr><td class="label-col">Kemitraan Pembelajaran</td><td>: ${data.kemitraanPembelajaran || ''}</td></tr>
+                                <tr><td class="label-col">Lingkungan Pembelajaran</td><td>: ${data.lingkunganPembelajaran || ''}</td></tr>
+                                <tr><td class="label-col">Pemanfaatan Digital</td><td>: ${data.pemanfaatanDigital || ''}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="vertical-header" style="background-color: #ddebf7;">Pengalaman Belajar</td>
+                        <td>
+                            <table class="langkah-table">
+                                <tr><td colspan="3" class="langkah-title">Langkah-Langkah Pembelajaran</td></tr>
+                                <tr>
+                                    <td class="langkah-title" style="width: 33%;">Awal <br><span class="langkah-subtitle">(berkesan, bermakna)</span></td>
+                                    <td class="langkah-title" style="width: 34%;">Inti <br><span class="langkah-subtitle">(berkesadaran, bermakna, menggembirakan)</span></td>
+                                    <td class="langkah-title" style="width: 33%;">Penutup <br><span class="langkah-subtitle">(berkesadaran)</span></td>
+                                </tr>
+                                <tr>
+                                    <td>${listToHtml(langkah?.awal)}</td>
+                                    <td>${listToHtml(langkah?.inti)}</td>
+                                    <td>${listToHtml(langkah?.penutup)}</td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="vertical-header" style="background-color: #a9d08e;">Asesmen Pembelajaran</td>
+                        <td>
+                            <table class="inner-table">
+                                <tr><td class="label-col">Asesmen pada Awal</td><td>: ${asesmen?.awal || ''}</td></tr>
+                                <tr><td class="label-col">Asesmen pada Proses</td><td>: ${asesmen?.proses || ''}</td></tr>
+                                <tr><td class="label-col">Asesmen pada Akhir</td><td>: ${asesmen?.akhir || ''}</td></tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+                <h2>LAMPIRAN-LAMPIRAN</h2>
+                <h3>Materi Ajar</h3>
+                <p>${lampiran?.materi_ajar || ''}</p>
+                <h3>Lembar Kerja Peserta Didik (LKPD)</h3>
+                ${listToHtml(lampiran?.lkpd)}
+                <h3>Rubrik Penilaian</h3>
+                <p>${(lampiran?.rubrik_penilaian || '').replace(/\n/g, '<br>')}</p>
+                <h3>Soal Asesmen</h3>
+                ${soalHtml}
+            </div>`;
+        }
+
+        function generateDocxFromElement(element, data) {
+            const content = element.innerHTML;
+            const blob = htmlDocx.asBlob(content, {
+                orientation: 'portrait',
+                margins: {
+                    top: 720, // 1 inch = 720
+                    bottom: 720,
+                    left: 720,
+                    right: 720
+                }
+            });
+            saveAs(blob, `RPP-${data.mataPelajaran.replace(/ /g, '-')}.docx`);
+        }
+
+        function generatePdfFromElement(element, data) {
+            const marginValue = parseFloat(document.getElementById('margin-input').value) || 0.4;
+            const opt = {
+                margin: marginValue,
+                filename: `RPP-${data.mataPelajaran.replace(/ /g, '-')}.pdf`,
+                image: { type: 'jpeg', quality: 1.0 },
+                html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+                jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(element).set(opt).save();
+        }
+        
+        // --- Initial setup ---
+        navigateTo('page-identitas');
+    </script>
+</body>
+</html>
