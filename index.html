@@ -56,7 +56,7 @@
         .modal-footer { padding-top: 15px; margin-top: 15px; border-top: 1px solid #ddd; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem; }
         .page { display: none; }
         .page.active { display: block; }
-        .saved-item { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; cursor: pointer; transition: background-color 0.2s, box-shadow 0.2s; background-color: white; }
+        .saved-item { padding: 1rem; border: 1px solid #e2e8f0; border-radius: 0.5rem; margin-bottom: 1rem; transition: background-color 0.2s, box-shadow 0.2s; background-color: white; }
         .saved-item:hover { background-color: #f8fafc; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); }
         .nav-btn { cursor: pointer; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s ease-in-out; }
         .nav-btn.active { background-color: #4f46e5; color: white; box-shadow: 0 4px 14px 0 rgba(79, 70, 229, 0.39); }
@@ -232,7 +232,7 @@
         <div id="page-hasil" class="page">
             <header class="text-center mb-8">
                 <h1 class="text-3xl sm:text-4xl font-bold text-slate-900 main-title">Hasil Modul Ajar Tersimpan</h1>
-                <p class="mt-2 text-lg text-slate-600">Klik pada salah satu item untuk melihat pratinjau dan mengunduh.</p>
+                <p class="mt-2 text-lg text-slate-600">Klik pada salah satu item untuk melihat pratinjau atau menghapus.</p>
             </header>
             <div id="saved-list-container">
                 <!-- Saved items will be rendered here -->
@@ -333,7 +333,6 @@
                 }
             } catch (e) {
                 console.error("Gagal memuat data dari Local Storage:", e);
-                // Jika data korup, hapus saja
                 localStorage.removeItem('identitas');
                 localStorage.removeItem('savedModules');
             }
@@ -416,7 +415,33 @@
             if (event.target.classList.contains('modal')) { event.target.style.display = 'none'; }
         });
 
+        savedListContainer.addEventListener('click', handleHasilListClick);
+
         // --- Handlers ---
+        function handleHasilListClick(event) {
+            const target = event.target;
+            const deleteBtn = target.closest('.delete-module-btn');
+            const previewArea = target.closest('.preview-area');
+
+            if (deleteBtn) {
+                const index = parseInt(deleteBtn.dataset.index, 10);
+                if (confirm(`Apakah Anda yakin ingin menghapus modul ajar ini?`)) {
+                    appState.savedModules.splice(index, 1);
+                    saveDataToLocalStorage();
+                    renderHasilPage();
+                }
+            } else if (previewArea) {
+                const index = parseInt(previewArea.dataset.index, 10);
+                const modul = appState.savedModules[index];
+                if (modul) {
+                    const content = getHtmlContent(modul.data, modul.langkah, modul.asesmen, modul.lampiran);
+                    previewContainer.innerHTML = content;
+                    saveBtn.style.display = 'none';
+                    previewModal.style.display = 'flex';
+                }
+            }
+        }
+
         async function handlePreviewClick() {
             appState.error = null;
             previewContainer.innerHTML = '';
@@ -498,17 +523,16 @@
             }
             appState.savedModules.forEach((modul, index) => {
                 const item = document.createElement('div');
-                item.className = 'saved-item';
+                item.className = 'saved-item flex justify-between items-center';
                 item.innerHTML = `
-                    <h3 class="font-bold text-lg">${modul.data.mataPelajaran || 'Tanpa Judul'}</h3>
-                    <p class="text-sm text-slate-600">${modul.data.topikPembelajaran || 'Tanpa Topik'}</p>
+                    <div class="flex-grow cursor-pointer preview-area" data-index="${index}">
+                        <h3 class="font-bold text-lg">${modul.data.mataPelajaran || 'Tanpa Judul'}</h3>
+                        <p class="text-sm text-slate-600">${modul.data.topikPembelajaran || 'Tanpa Topik'}</p>
+                    </div>
+                    <button data-index="${index}" class="delete-module-btn text-red-500 hover:text-red-700 p-2 rounded-md transition-colors" title="Hapus Modul Ajar">
+                        <svg class="pointer-events-none" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    </button>
                 `;
-                item.addEventListener('click', () => {
-                    const content = getHtmlContent(modul.data, modul.langkah, modul.asesmen, modul.lampiran);
-                    previewContainer.innerHTML = content;
-                    saveBtn.style.display = 'none';
-                    previewModal.style.display = 'flex';
-                });
                 savedListContainer.appendChild(item);
             });
         }
